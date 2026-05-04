@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Portal</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f4f4f4; }
+        .panel { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h2 { margin-top: 0; }
+        button { padding: 10px 15px; cursor: pointer; margin-right: 10px; }
+        .log { background: #1e1e1e; color: #00ff00; font-family: monospace; padding: 10px; height: 150px; overflow-y: scroll; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Multimodal Narratives - Admin Portal</h1>
+
+    <div class="panel">
+        <h2>Room Controls</h2>
+        <!-- Future Admin controls will send messages to specific rooms -->
+        <button onclick="sendCommand('room1', {command: 'toggle_tracking', state: 'on'})">Start Tracking (Room 1)</button>
+        <button onclick="sendCommand('room1', {command: 'toggle_tracking', state: 'off'})">Stop Tracking (Room 1)</button>
+        <button onclick="alert('Trigger Room 2 Audio (Task 4)')">Trigger Room 2 Audio</button>
+        <button onclick="alert('Start Room 3 Relaxing Audio (Task 5)')">Start Room 3 Audio</button>
+    </div>
+
+    <div class="panel">
+        <h2>Telemetry Log (Tracking Data)</h2>
+        <p>This panel listens to the `admin` WebSocket channel, which receives forwarded telemetry data from the tracking module in Room 1.</p>
+        <div id="telemetry-log" class="log"></div>
+    </div>
+
+    <script>
+        const clientId = "admin_" + Math.random().toString(36).substring(7);
+        // Connect to the 'admin' room
+        const wsAdmin = new WebSocket(`ws://${window.location.host}/ws/admin/${clientId}`);
+
+        // Also connect to room1 if we need to send direct commands to it
+        // Or we could have the server route commands from admin to room1
+        const wsRoom1 = new WebSocket(`ws://${window.location.host}/ws/room1/${clientId}`);
+
+        wsAdmin.onopen = function() { console.log("Connected to Admin WebSocket"); };
+
+        wsAdmin.onmessage = function(event) {
+            const logBox = document.getElementById('telemetry-log');
+            const newLog = document.createElement('div');
+            newLog.textContent = `> ${event.data}`;
+            logBox.appendChild(newLog);
+            logBox.scrollTop = logBox.scrollHeight; // Auto-scroll
+        };
+
+        function sendCommand(room, data) {
+            if (room === 'room1' && wsRoom1.readyState === WebSocket.OPEN) {
+                wsRoom1.send(JSON.stringify(data));
+                console.log("Sent command to Room 1:", data);
+            }
+        }
+    </script>
+</body>
+</html>

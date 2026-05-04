@@ -15,17 +15,21 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def get_admin():
     return FileResponse("static/admin.html")
 
-@app.get("/puzzle")
-async def get_puzzle():
-    return FileResponse("static/puzzle.html")
-
 @app.get("/room1")
 async def get_room1():
     return FileResponse("static/room1.html")
 
+@app.get("/room2")
+async def get_room2():
+    return FileResponse("static/room2.html")
+
+@app.get("/room3")
+async def get_room3():
+    return FileResponse("static/room3.html")
+
 @app.get("/")
 async def get_root():
-    return {"message": "Welcome to Multimodal Narratives. Endpoints: /admin, /puzzle, /room1"}
+    return {"message": "Welcome to Multimodal Narratives. Endpoints: /admin, /room1, /room2, /room3"}
 
 class ConnectionManager:
     def __init__(self):
@@ -62,9 +66,20 @@ async def websocket_endpoint(websocket: WebSocket, room_name: str, client_id: st
     try:
         while True:
             data = await websocket.receive_text()
-            # In a real app, you might parse the data and route it.
-            # For now, we'll just echo it back to the room.
-            await manager.broadcast_to_room(f"Client #{client_id} says: {data}", room_name)
+            # Try to parse as JSON for specific routing, otherwise echo
+            import json
+            try:
+                json_data = json.loads(data)
+
+                # If telemetry data from tracking module, also send to admin
+                if room_name == "room1" and "type" in json_data and json_data["type"] in ["movement", "gaze"]:
+                    await manager.broadcast_to_room(data, "admin")
+
+                # Broadcast the JSON data to the room
+                await manager.broadcast_to_room(data, room_name)
+            except json.JSONDecodeError:
+                # Fallback for simple text messages
+                await manager.broadcast_to_room(f"Client #{client_id} says: {data}", room_name)
     except WebSocketDisconnect:
         manager.disconnect(websocket, room_name)
         await manager.broadcast_to_room(f"Client #{client_id} left the chat", room_name)

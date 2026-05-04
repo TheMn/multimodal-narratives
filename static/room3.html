@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room 3: Reconciliation</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; margin-top: 50px; background-color: #fdfbf7; color: #333; }
+        .controls { margin-top: 20px; }
+        button { padding: 10px 20px; font-size: 16px; margin: 0 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Room 3: Reconciliation</h1>
+    <p>A cozy, relaxed space to actively engage with art.</p>
+
+    <div class="controls">
+        <button id="end-btn" onclick="window.location.href='/'">End Experience</button>
+    </div>
+
+    <script>
+        const clientId = "client_" + Math.random().toString(36).substring(7);
+        const ws = new WebSocket(`ws://${window.location.host}/ws/room3/${clientId}`);
+
+        ws.onopen = function() {
+            console.log("Connected to Room 3 WebSocket");
+        };
+
+        ws.onmessage = function(event) {
+            console.log("Received data:", event.data);
+        };
+    </script>
+</body>
+</html>
