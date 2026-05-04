@@ -32,6 +32,15 @@ class TrackingModule:
         self.cap = cv2.VideoCapture(0)
         self.prev_frame = None
 
+        self.mock_mode = False
+        if not self.cap.isOpened():
+            print("\n" + "="*60)
+            print("WARNING: Could not access the webcam (/dev/video0).")
+            print("This is common in WSL environments or if another app is using the camera.")
+            print("Starting in MOCK MODE: Generating random gaze and movement data for testing.")
+            print("="*60 + "\n")
+            self.mock_mode = True
+
     async def _listen_for_commands(self, websocket):
         """Listens for commands from the central server, like toggling tracking."""
         try:
@@ -52,9 +61,33 @@ class TrackingModule:
 
     async def _process_frames(self, websocket):
         """Continuously processes webcam frames and sends telemetry."""
+        import random
         while True:
             if not self.is_tracking:
                 await asyncio.sleep(0.5)
+                continue
+
+            if self.mock_mode:
+                # Generate mock data so the frontend effects can be tested without a real camera
+                intensity = random.uniform(0.0, 0.2) if random.random() > 0.8 else 0.0
+                if intensity > 0.05:
+                    await websocket.send(json.dumps({
+                        "type": "movement",
+                        "intensity": round(intensity, 3),
+                        "bounding_box": {"x1": 0, "y1": 0, "x2": 100, "y2": 100}
+                    }))
+
+                # Mock gaze mostly towards the center
+                if random.random() > 0.3:
+                    mock_x = max(0.0, min(1.0, random.gauss(0.5, 0.2)))
+                    mock_y = max(0.0, min(1.0, random.gauss(0.5, 0.2)))
+                    await websocket.send(json.dumps({
+                        "type": "gaze",
+                        "detected": True,
+                        "coordinates": {"x": round(mock_x, 3), "y": round(mock_y, 3)}
+                    }))
+
+                await asyncio.sleep(0.2)
                 continue
 
             ret, frame = self.cap.read()
