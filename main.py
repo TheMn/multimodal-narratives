@@ -2,8 +2,26 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import os
+import subprocess
+import sys
 
 app = FastAPI(title="Multimodal Narratives Backend")
+
+# Global reference to the tracking subprocess
+tracking_process = None
+
+def start_tracking():
+    global tracking_process
+    if tracking_process is None or tracking_process.poll() is not None:
+        print("Starting tracking_module.py...")
+        tracking_process = subprocess.Popen([sys.executable, "tracking_module.py"])
+
+def stop_tracking():
+    global tracking_process
+    if tracking_process is not None and tracking_process.poll() is None:
+        print("Stopping tracking_module.py...")
+        tracking_process.terminate()
+        tracking_process = None
 
 # Ensure static directory exists
 os.makedirs("static", exist_ok=True)
@@ -82,9 +100,17 @@ async def websocket_endpoint(websocket: WebSocket, room_name: str, client_id: st
             try:
                 json_data = json.loads(data)
 
-                # If telemetry data from tracking module, also send to admin
-                if room_name == "room1" and "type" in json_data and json_data["type"] in ["movement", "gaze"]:
-                    await manager.broadcast_to_room(data, "admin")
+                if room_name == "room1":
+                    # Check for start/stop commands
+                    if "command" in json_data and json_data["command"] == "toggle_tracking":
+                        if json_data["state"] == "on":
+                            start_tracking()
+                        elif json_data["state"] == "off":
+                            stop_tracking()
+
+                    # If telemetry data from tracking module, also send to admin
+                    if "type" in json_data and json_data["type"] in ["movement", "gaze"]:
+                        await manager.broadcast_to_room(data, "admin")
 
                 # Broadcast the JSON data to the room
                 await manager.broadcast_to_room(data, room_name)
