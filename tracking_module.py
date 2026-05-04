@@ -16,7 +16,8 @@ import json
 class TrackingModule:
     def __init__(self, websocket_url):
         self.websocket_url = websocket_url
-        self.is_tracking = False
+        # If it is spawned, it should track by default
+        self.is_tracking = True
 
         # Initialize MediaPipe Face Mesh
         self.mp_face_mesh = mp.solutions.face_mesh

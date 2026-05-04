@@ -92,14 +92,9 @@ We aim to keep the project as simple as possible. You don't need databases or he
    ```bash
    python -m uvicorn main:app --host 0.0.0.0 --port 8000
    ```
-5. **Run the Tracking Module (Room 1):**
-   Open a *second* terminal (with your virtual environment activated) and run the tracking script. This will use your webcam to track movement and gaze:
-   ```bash
-   python tracking_module.py
-   ```
-6. **Access the Portals:**
+5. **Access the Portals:**
    - **Admin Portal:** Open your browser and navigate to `http://localhost:8000/admin`
    - **Room 1 Visuals:** Navigate to `http://localhost:8000/room1`
    - **Interactive Puzzle (Room 3):** Navigate to `http://localhost:8000/room3`
 
-*(Note: The tracking features in Room 1 will only trigger if both `main.py` and `tracking_module.py` are running concurrently, and the user presses "Start Experience" in the Room 1 interface.)*
+*(Note: The tracking features in Room 1 are managed automatically. Once the main server is running, the webcam tracking will automatically start in the background the moment a user or admin clicks "Start Experience" in Room 1, and will gracefully stop when they end it.)*
