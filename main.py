@@ -7,9 +7,20 @@ app = FastAPI(title="Multimodal Narratives Backend")
 
 # Ensure static directory exists
 os.makedirs("static", exist_ok=True)
+os.makedirs("static/artworks", exist_ok=True)
 
 # Mount the static directory
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/api/artworks")
+async def get_artworks():
+    try:
+        files = os.listdir("static/artworks")
+        # Filter for basic image types
+        images = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp'))]
+        return {"artworks": images}
+    except Exception as e:
+        return {"artworks": []}
 
 @app.get("/admin")
 async def get_admin():
