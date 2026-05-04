@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room 1: Overstimulation</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; margin-top: 50px; background-color: #f0f0f0; }
+        .controls { margin-top: 20px; }
+        button { padding: 10px 20px; font-size: 16px; margin: 0 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Room 1: Overstimulation</h1>
+    <p>This room simulates the chaos and sensory overload of the digital age.</p>
+
+    <div class="controls">
+        <button id="start-btn">Start Experience</button>
+        <button id="end-btn" onclick="window.location.href='/room2'">End & Proceed to Room 2</button>
+    </div>
+
+    <script>
+        const clientId = "client_" + Math.random().toString(36).substring(7);
+        const ws = new WebSocket(`ws://${window.location.host}/ws/room1/${clientId}`);
+
+        ws.onopen = function() {
+            console.log("Connected to Room 1 WebSocket");
+        };
+
+        ws.onmessage = function(event) {
+            console.log("Received data:", event.data);
+            try {
+                const data = JSON.parse(event.data);
+                // Future visual logic based on tracking data
+            } catch(e) {
+                // Not JSON data
+            }
+        };
+
+        document.getElementById('start-btn').addEventListener('click', () => {
+            // Tell the tracking module to start processing
+            ws.send(JSON.stringify({command: "toggle_tracking", state: "on"}));
+            console.log("Started tracking.");
+        });
+
+        document.getElementById('end-btn').addEventListener('click', () => {
+            // Tell the tracking module to stop processing before leaving
+            ws.send(JSON.stringify({command: "toggle_tracking", state: "off"}));
+            console.log("Stopped tracking.");
+        });
+    </script>
+</body>
+</html>
