@@ -114,8 +114,8 @@ class TrackingModule:
                 gaze_detected = True
                 # Just using the nose tip (landmark 1) as a proxy for attention focus point
                 landmark = results.multi_face_landmarks[0].landmark[1]
-                h, w, _ = frame.shape
-                gaze_coords = {"x": round(landmark.x * w, 2), "y": round(landmark.y * h, 2)}
+                # Use normalized coordinates directly (0.0 to 1.0)
+                gaze_coords = {"x": round(landmark.x, 3), "y": round(landmark.y, 3)}
 
             # Broadcast Gaze Data (only send if someone is looking, or periodically to reset)
             if gaze_detected:

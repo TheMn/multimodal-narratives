@@ -5,14 +5,136 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Room 1: Overstimulation</title>
     <style>
-        body { font-family: sans-serif; text-align: center; margin-top: 50px; background-color: #f0f0f0; }
-        .controls { margin-top: 20px; }
-        button { padding: 10px 20px; font-size: 16px; margin: 0 10px; cursor: pointer; }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            overflow: hidden; /* Prevent manual scrolling */
+            font-family: sans-serif;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #feed-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .artwork-container {
+            position: absolute;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: transform 0.5s ease-in-out, opacity 0.3s ease;
+            transform: translateY(100vh);
+        }
+
+        .artwork-container.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .artwork-container.exiting {
+            opacity: 1;
+            transform: translateY(-100vh);
+        }
+
+        img.artwork {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            z-index: 100;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid white;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        #glitch-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+            background: transparent;
+            opacity: 0;
+        }
+
+        /* Gaze Spot */
+        #gaze-spot {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 60;
+            mix-blend-mode: difference;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        /* Shake animation for movement */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        body.shake {
+            animation: shake 0.5s;
+            animation-iteration-count: infinite;
+            filter: contrast(150%) saturate(200%) hue-rotate(90deg);
+        }
+
     </style>
 </head>
 <body>
-    <h1>Room 1: Overstimulation</h1>
-    <p>This room simulates the chaos and sensory overload of the digital age.</p>
+    <div id="feed-container">
+        <!-- Images will be injected here -->
+    </div>
+
+    <div id="gaze-spot"></div>
 
     <div class="controls">
         <button id="start-btn">Start Experience</button>
@@ -23,31 +145,163 @@
         const clientId = "client_" + Math.random().toString(36).substring(7);
         const ws = new WebSocket(`ws://${window.location.host}/ws/room1/${clientId}`);
 
+        let artworks = [];
+        let currentIndex = -1;
+        let feedTimer = null;
+        let isExperienceRunning = false;
+        let currentTimeout = null;
+
+        const feedContainer = document.getElementById('feed-container');
+        const gazeSpot = document.getElementById('gaze-spot');
+        const body = document.body;
+
+        // Base timings
+        let minDelay = 1500;
+        let maxDelay = 3500;
+
+        // Fetch artworks
+        async function fetchArtworks() {
+            try {
+                const response = await fetch('/api/artworks');
+                const data = await response.json();
+                if (data.artworks && data.artworks.length > 0) {
+                    artworks = data.artworks;
+                    console.log("Loaded artworks:", artworks);
+                } else {
+                    console.warn("No artworks found in static/artworks");
+                    // Add a placeholder just in case
+                    artworks = ["placeholder.jpg"];
+                }
+            } catch (e) {
+                console.error("Failed to fetch artworks", e);
+            }
+        }
+
+        function createArtworkElement(src) {
+            const container = document.createElement('div');
+            container.className = 'artwork-container';
+            const img = document.createElement('img');
+            img.src = src;
+            img.className = 'artwork';
+            container.appendChild(img);
+            return container;
+        }
+
+        function nextImage() {
+            if (!isExperienceRunning || artworks.length === 0) return;
+
+            // Remove old exiting images
+            const existingExiting = document.querySelectorAll('.artwork-container.exiting');
+            existingExiting.forEach(el => el.remove());
+
+            // Mark current as exiting
+            const currentActive = document.querySelector('.artwork-container.active');
+            if (currentActive) {
+                currentActive.classList.remove('active');
+                currentActive.classList.add('exiting');
+            }
+
+            // Pick a random next image
+            let nextIndex = Math.floor(Math.random() * artworks.length);
+            // Don't show the exact same image twice in a row if possible
+            if (artworks.length > 1 && nextIndex === currentIndex) {
+                nextIndex = (nextIndex + 1) % artworks.length;
+            }
+            currentIndex = nextIndex;
+
+            const newContainer = createArtworkElement(`/static/artworks/${artworks[currentIndex]}`);
+            feedContainer.appendChild(newContainer);
+
+            // Force reflow before adding active class
+            void newContainer.offsetWidth;
+            newContainer.classList.add('active');
+
+            // Schedule next image
+            const delay = Math.random() * (maxDelay - minDelay) + minDelay;
+            currentTimeout = setTimeout(nextImage, delay);
+        }
+
         ws.onopen = function() {
             console.log("Connected to Room 1 WebSocket");
         };
 
+        let movementResetTimeout = null;
+        let gazeResetTimeout = null;
+
         ws.onmessage = function(event) {
-            console.log("Received data:", event.data);
+            if (!isExperienceRunning) return;
+
             try {
                 const data = JSON.parse(event.data);
-                // Future visual logic based on tracking data
+
+                if (data.type === "gaze" && data.detected) {
+                    // Normalize coordinates are 0.0 to 1.0
+                    // Map to viewport
+                    const x = data.coordinates.x * window.innerWidth;
+                    const y = data.coordinates.y * window.innerHeight;
+
+                    gazeSpot.style.left = `${x}px`;
+                    gazeSpot.style.top = `${y}px`;
+                    gazeSpot.style.opacity = 1;
+
+                    // Hide after a short while if no new gaze data
+                    clearTimeout(gazeResetTimeout);
+                    gazeResetTimeout = setTimeout(() => {
+                        gazeSpot.style.opacity = 0;
+                    }, 500);
+                }
+
+                if (data.type === "movement" && data.intensity > 0.1) {
+                    // Trigger global glitch/shake
+                    body.classList.add('shake');
+
+                    // Speed up feed
+                    minDelay = 500;
+                    maxDelay = 1000;
+
+                    // If we are currently waiting a long time for the next image, interrupt and force it sooner
+                    clearTimeout(currentTimeout);
+                    currentTimeout = setTimeout(nextImage, Math.random() * 500 + 500);
+
+                    clearTimeout(movementResetTimeout);
+                    movementResetTimeout = setTimeout(() => {
+                        body.classList.remove('shake');
+                        // Reset speeds
+                        minDelay = 1500;
+                        maxDelay = 3500;
+                    }, 1000); // 1 second of chaos
+                }
+
             } catch(e) {
-                // Not JSON data
+                // Not JSON data or malformed
             }
         };
 
-        document.getElementById('start-btn').addEventListener('click', () => {
+        document.getElementById('start-btn').addEventListener('click', async () => {
+            if (artworks.length === 0) {
+                await fetchArtworks();
+            }
+
+            isExperienceRunning = true;
+            document.querySelector('.controls').style.opacity = '0.1'; // dim controls
+
             // Tell the tracking module to start processing
             ws.send(JSON.stringify({command: "toggle_tracking", state: "on"}));
             console.log("Started tracking.");
+
+            nextImage();
         });
 
         document.getElementById('end-btn').addEventListener('click', () => {
+            isExperienceRunning = false;
+            clearTimeout(currentTimeout);
             // Tell the tracking module to stop processing before leaving
             ws.send(JSON.stringify({command: "toggle_tracking", state: "off"}));
             console.log("Stopped tracking.");
         });
+
+        // Initial fetch
+        fetchArtworks();
     </script>
 </body>
 </html>
