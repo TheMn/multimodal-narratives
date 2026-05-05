@@ -164,15 +164,20 @@ class TrackingModule:
             # - IRIS_WEIGHT (default 0.7): How much the eyeball/iris movement controls
             #   the glitch. A higher weight means moving your eyes while your head
             #   is perfectly still will cause the glitch spot to move rapidly.
-            # - MULTIPLIER_X / Y (default 3.0): Because your iris only moves a few
+            # - MULTIPLIER_X / Y (default 250.0 / 3.0): Because your iris only moves a few
             #   millimeters, we multiply that tiny shift so it spans the entire
-            #   computer screen. Increase this to make the glitch spot move further
-            #   even with tiny eye movements.
+            #   computer screen. Increase this to make the glitch spot move further.
+            # - OFFSET_X / Y (default 0.0 / -0.2): The camera is usually at the TOP
+            #   of the screen, meaning you are technically looking "down" at the
+            #   monitor. Decrease OFFSET_Y (make it negative) to artificially lift
+            #   the baseline starting point up so it aligns with the center of the screen.
             # =====================================================================
             HEAD_WEIGHT = 0.3
             IRIS_WEIGHT = 0.7
-            MULTIPLIER_X = 3.0
+            MULTIPLIER_X = 250.0
             MULTIPLIER_Y = 3.0
+            OFFSET_X = 0.0
+            OFFSET_Y = -0.2
 
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = self.face_mesh.process(rgb_frame)
@@ -203,12 +208,12 @@ class TrackingModule:
                 # The raw difference is tiny, so we multiply it
                 iris_shift_x = (iris_center_x - eye_center_x) * MULTIPLIER_X
 
-                # Combine head position with the amplified iris shift
-                final_x = (head_x * HEAD_WEIGHT) + (0.5 + iris_shift_x) * IRIS_WEIGHT
+                # Combine head position with the amplified iris shift, plus the physical offsets
+                final_x = ((head_x * HEAD_WEIGHT) + (0.5 + iris_shift_x) * IRIS_WEIGHT) + OFFSET_X
 
                 # For Y axis, just amplifying the head movement slightly since vertical
-                # eye tracking is less reliable without calibration
-                final_y = 0.5 + ((head_y - 0.5) * MULTIPLIER_Y)
+                # eye tracking is less reliable without calibration, and adding the offset.
+                final_y = (0.5 + ((head_y - 0.5) * MULTIPLIER_Y)) + OFFSET_Y
 
                 # Clamp values between 0.0 and 1.0 so the spot doesn't leave the screen
                 gaze_coords["x"] = round(max(0.0, min(1.0, final_x)), 3)
