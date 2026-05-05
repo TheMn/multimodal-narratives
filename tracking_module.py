@@ -175,7 +175,7 @@ class TrackingModule:
             HEAD_WEIGHT = 0.3
             IRIS_WEIGHT = 0.7
             MULTIPLIER_X = 250.0
-            MULTIPLIER_Y = 3.0
+            MULTIPLIER_Y = 250.0
             OFFSET_X = 0.0
             OFFSET_Y = -0.2
 
@@ -194,26 +194,38 @@ class TrackingModule:
                 head_y = landmarks[1].y
 
                 # Iris Tracking (Left Iris Center: 468, Right Iris Center: 473)
-                # Eye Corners for reference (Left outer: 33, Right outer: 263)
+                # Eye Corners for reference (Left outer: 33, Left inner: 133, Right outer: 263, Right inner: 362)
                 l_iris_x = landmarks[468].x
                 r_iris_x = landmarks[473].x
                 l_eye_corner_x = landmarks[33].x
                 r_eye_corner_x = landmarks[263].x
+
+                l_iris_y = landmarks[468].y
+                r_iris_y = landmarks[473].y
+
+                l_eye_outer_y = landmarks[33].y
+                l_eye_inner_y = landmarks[133].y
+                r_eye_outer_y = landmarks[263].y
+                r_eye_inner_y = landmarks[362].y
 
                 # Calculate relative Iris shift from center of the eyes
                 # If iris is close to the outer corner, they are looking left/right
                 eye_center_x = (l_eye_corner_x + r_eye_corner_x) / 2.0
                 iris_center_x = (l_iris_x + r_iris_x) / 2.0
 
+                # Vertical (Y) shift based on stable eye corners
+                l_eye_center_y = (l_eye_outer_y + l_eye_inner_y) / 2.0
+                r_eye_center_y = (r_eye_outer_y + r_eye_inner_y) / 2.0
+                eye_center_y = (l_eye_center_y + r_eye_center_y) / 2.0
+                iris_center_y = (l_iris_y + r_iris_y) / 2.0
+
                 # The raw difference is tiny, so we multiply it
                 iris_shift_x = (iris_center_x - eye_center_x) * MULTIPLIER_X
+                iris_shift_y = (iris_center_y - eye_center_y) * MULTIPLIER_Y
 
                 # Combine head position with the amplified iris shift, plus the physical offsets
                 final_x = ((head_x * HEAD_WEIGHT) + (0.5 + iris_shift_x) * IRIS_WEIGHT) + OFFSET_X
-
-                # For Y axis, just amplifying the head movement slightly since vertical
-                # eye tracking is less reliable without calibration, and adding the offset.
-                final_y = (0.5 + ((head_y - 0.5) * MULTIPLIER_Y)) + OFFSET_Y
+                final_y = ((head_y * HEAD_WEIGHT) + (0.5 + iris_shift_y) * IRIS_WEIGHT) + OFFSET_Y
 
                 # Clamp values between 0.0 and 1.0 so the spot doesn't leave the screen
                 gaze_coords["x"] = round(max(0.0, min(1.0, final_x)), 3)
