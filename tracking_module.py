@@ -13,6 +13,7 @@ import json
 # Infrared (IR) or Night-vision cameras.
 # ==============================================================================
 
+
 class TrackingModule:
     def __init__(self, websocket_url):
         self.websocket_url = websocket_url
@@ -25,7 +26,7 @@ class TrackingModule:
             max_num_faces=1,
             refine_landmarks=True,
             min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
+            min_tracking_confidence=0.5,
         )
 
         # Open webcam
@@ -34,11 +35,15 @@ class TrackingModule:
 
         self.mock_mode = False
         if not self.cap.isOpened():
-            print("\n" + "="*60)
+            print("\n" + "=" * 60)
             print("WARNING: Could not access the webcam (/dev/video0).")
-            print("This is common in WSL environments or if another app is using the camera.")
-            print("Starting in MOCK MODE: Generating random gaze and movement data for testing.")
-            print("="*60 + "\n")
+            print(
+                "This is common in WSL environments or if another app is using the camera."
+            )
+            print(
+                "Starting in MOCK MODE: Generating random gaze and movement data for testing."
+            )
+            print("=" * 60 + "\n")
             self.mock_mode = True
 
     async def _listen_for_commands(self, websocket):
@@ -62,6 +67,7 @@ class TrackingModule:
     async def _process_frames(self, websocket):
         """Continuously processes webcam frames and sends telemetry."""
         import random
+
         while True:
             if not self.is_tracking:
                 await asyncio.sleep(0.5)
@@ -71,21 +77,37 @@ class TrackingModule:
                 # Generate mock data so the frontend effects can be tested without a real camera
                 intensity = random.uniform(0.0, 0.2) if random.random() > 0.8 else 0.0
                 if intensity > 0.05:
-                    await websocket.send(json.dumps({
-                        "type": "movement",
-                        "intensity": round(intensity, 3),
-                        "bounding_box": {"x1": 0, "y1": 0, "x2": 100, "y2": 100}
-                    }))
+                    await websocket.send(
+                        json.dumps(
+                            {
+                                "type": "movement",
+                                "intensity": round(intensity, 3),
+                                "bounding_box": {
+                                    "x1": 0,
+                                    "y1": 0,
+                                    "x2": 100,
+                                    "y2": 100,
+                                },
+                            }
+                        )
+                    )
 
                 # Mock gaze mostly towards the center
                 if random.random() > 0.3:
                     mock_x = max(0.0, min(1.0, random.gauss(0.5, 0.2)))
                     mock_y = max(0.0, min(1.0, random.gauss(0.5, 0.2)))
-                    await websocket.send(json.dumps({
-                        "type": "gaze",
-                        "detected": True,
-                        "coordinates": {"x": round(mock_x, 3), "y": round(mock_y, 3)}
-                    }))
+                    await websocket.send(
+                        json.dumps(
+                            {
+                                "type": "gaze",
+                                "detected": True,
+                                "coordinates": {
+                                    "x": round(mock_x, 3),
+                                    "y": round(mock_y, 3),
+                                },
+                            }
+                        )
+                    )
 
                 await asyncio.sleep(0.2)
                 continue
@@ -125,21 +147,25 @@ class TrackingModule:
             if self.prev_frame is not None:
                 # Calculate difference between current and previous frame
                 frame_diff = cv2.absdiff(self.prev_frame, gray)
-                thresh = cv2.threshold(frame_diff, MOVEMENT_PIXEL_THRESH, 255, cv2.THRESH_BINARY)[1]
+                thresh = cv2.threshold(
+                    frame_diff, MOVEMENT_PIXEL_THRESH, 255, cv2.THRESH_BINARY
+                )[1]
                 thresh = cv2.dilate(thresh, None, iterations=2)
 
                 # Find contours to calculate intensity and bounding box
-                contours, _ = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                contours, _ = cv2.findContours(
+                    thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+                )
 
                 total_area = 0
                 max_area = 0
                 for c in contours:
                     area = cv2.contourArea(c)
-                    if area > MOVEMENT_MIN_AREA: # Filter out small noise
+                    if area > MOVEMENT_MIN_AREA:  # Filter out small noise
                         total_area += area
                         if area > max_area:
                             max_area = area
-                            (x, y, w, h) = cv2.boundingRect(c)
+                            x, y, w, h = cv2.boundingRect(c)
                             bounding_box = {"x1": x, "y1": y, "x2": x + w, "y2": y + h}
 
                 # Normalize intensity based on a typical large movement
@@ -152,7 +178,7 @@ class TrackingModule:
                 movement_msg = {
                     "type": "movement",
                     "intensity": round(intensity, 3),
-                    "bounding_box": bounding_box
+                    "bounding_box": bounding_box,
                 }
                 await websocket.send(json.dumps(movement_msg))
 
@@ -172,10 +198,10 @@ class TrackingModule:
             #   monitor. Decrease OFFSET_Y (make it negative) to artificially lift
             #   the baseline starting point up so it aligns with the center of the screen.
             # =====================================================================
-            HEAD_WEIGHT = 0.3
-            IRIS_WEIGHT = 0.7
-            MULTIPLIER_X = 250.0
-            MULTIPLIER_Y = 3.0
+            HEAD_WEIGHT = 0.2
+            IRIS_WEIGHT = 0.8
+            MULTIPLIER_X = 230
+            MULTIPLIER_Y = 5
             OFFSET_X = 0.0
             OFFSET_Y = -0.2
 
@@ -209,7 +235,9 @@ class TrackingModule:
                 iris_shift_x = (iris_center_x - eye_center_x) * MULTIPLIER_X
 
                 # Combine head position with the amplified iris shift, plus the physical offsets
-                final_x = ((head_x * HEAD_WEIGHT) + (0.5 + iris_shift_x) * IRIS_WEIGHT) + OFFSET_X
+                final_x = (
+                    (head_x * HEAD_WEIGHT) + (0.5 + iris_shift_x) * IRIS_WEIGHT
+                ) + OFFSET_X
 
                 # For Y axis, just amplifying the head movement slightly since vertical
                 # eye tracking is less reliable without calibration, and adding the offset.
@@ -224,7 +252,7 @@ class TrackingModule:
                 gaze_msg = {
                     "type": "gaze",
                     "detected": True,
-                    "coordinates": gaze_coords
+                    "coordinates": gaze_coords,
                 }
                 await websocket.send(json.dumps(gaze_msg))
 
@@ -237,9 +265,9 @@ class TrackingModule:
             print("Connected! Waiting for toggle_tracking command...")
             # Run the listener and the frame processor concurrently
             await asyncio.gather(
-                self._listen_for_commands(websocket),
-                self._process_frames(websocket)
+                self._listen_for_commands(websocket), self._process_frames(websocket)
             )
+
 
 if __name__ == "__main__":
     # Connect to the room1 tracking channel
