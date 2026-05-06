@@ -313,7 +313,8 @@
             isExperienceRunning = true;
             document.querySelector('.controls').style.opacity = '0.1'; // dim controls
 
-            // Start background audio
+            // Start background audio at 60th second
+            bgAudio.currentTime = 60;
             bgAudio.play().catch(e => console.warn("Audio play blocked", e));
 
             // Tell the tracking module to start processing
