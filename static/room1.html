@@ -150,6 +150,9 @@
     <audio id="bg-audio" loop>
         <source src="/static/audio/room1_background.mp3" type="audio/mpeg">
     </audio>
+    <audio id="trend-audio" loop crossorigin="anonymous">
+        <source src="/static/audio/trends.mp3" type="audio/mpeg">
+    </audio>
 
     <div class="controls">
         <button id="start-btn">Start Experience</button>
@@ -169,7 +172,12 @@
 
         const feedContainer = document.getElementById('feed-container');
         const bgAudio = document.getElementById('bg-audio');
+        const trendAudio = document.getElementById('trend-audio');
         const gazeSpot = document.getElementById('gaze-spot');
+
+        let audioCtx;
+        let trendSource;
+        let trendFilter;
         const body = document.body;
 
         // Base timings
@@ -325,9 +333,27 @@
             isExperienceRunning = true;
             document.querySelector('.controls').style.opacity = '0.1'; // dim controls
 
+            // Setup Web Audio API for trends audio to create a bass overlay
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                trendSource = audioCtx.createMediaElementSource(trendAudio);
+                trendFilter = audioCtx.createBiquadFilter();
+
+                trendFilter.type = 'lowpass';
+                trendFilter.frequency.value = 400; // Create muffled, bass-heavy effect
+
+                trendSource.connect(trendFilter);
+                trendFilter.connect(audioCtx.destination);
+            }
+
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
             // Start background audio at 60th second
             bgAudio.currentTime = 60;
             bgAudio.play().catch(e => console.warn("Audio play blocked", e));
+            trendAudio.play().catch(e => console.warn("Trend audio play blocked", e));
 
             // Tell the tracking module to start processing
             ws.send(JSON.stringify({command: "toggle_tracking", state: "on"}));
@@ -341,6 +367,7 @@
             clearTimeout(currentTimeout);
             // Stop background audio
             bgAudio.pause();
+            trendAudio.pause();
             // Tell the tracking module to stop processing before leaving
             ws.send(JSON.stringify({command: "toggle_tracking", state: "off"}));
             console.log("Stopped tracking.");
