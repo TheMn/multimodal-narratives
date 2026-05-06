@@ -148,7 +148,6 @@
 
     <!-- Audio elements -->
     <audio id="bg-audio" loop>
-        <source src="/static/audio/room1_background.wav" type="audio/wav">
         <source src="/static/audio/room1_background.mp3" type="audio/mpeg">
     </audio>
 
@@ -166,6 +165,7 @@
         let feedTimer = null;
         let isExperienceRunning = false;
         let currentTimeout = null;
+        let notificationFiles = [];
 
         const feedContainer = document.getElementById('feed-container');
         const bgAudio = document.getElementById('bg-audio');
@@ -176,7 +176,20 @@
         let minDelay = 1500;
         let maxDelay = 3500;
 
-        // Fetch artworks
+        // Fetch artworks and notifications
+        async function fetchNotifications() {
+            try {
+                const response = await fetch('/api/notifications');
+                const data = await response.json();
+                if (data.notifications && data.notifications.length > 0) {
+                    notificationFiles = data.notifications;
+                    console.log("Loaded notifications:", notificationFiles);
+                }
+            } catch (e) {
+                console.error("Failed to fetch notifications", e);
+            }
+        }
+
         async function fetchArtworks() {
             try {
                 const response = await fetch('/api/artworks');
@@ -274,14 +287,13 @@
 
                     // Play notification sound
                     // We create a new Audio object each time so multiple can overlap
-                    const notification = new Audio();
-                    notification.src = '/static/audio/notification.mp3';
-                    notification.onerror = () => {
-                        // Fallback to wav if mp3 doesn't exist
-                        notification.src = '/static/audio/notification.wav';
+                    if (notificationFiles.length > 0) {
+                        const randomIndex = Math.floor(Math.random() * notificationFiles.length);
+                        const selectedNotification = notificationFiles[randomIndex];
+                        const notification = new Audio();
+                        notification.src = `/static/audio/notifications/${selectedNotification}`;
                         notification.play().catch(e => console.warn("Audio play blocked", e));
-                    };
-                    notification.play().catch(e => console.warn("Audio play blocked", e));
+                    }
 
                     // Speed up feed
                     minDelay = 500;
@@ -336,6 +348,7 @@
 
         // Initial fetch
         fetchArtworks();
+        fetchNotifications();
     </script>
 </body>
 </html>

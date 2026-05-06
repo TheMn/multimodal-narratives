@@ -10,9 +10,11 @@ app = FastAPI(title="Multimodal Narratives Backend")
 # Global references to the subprocesses
 tracking_process = None
 audio_process = None
+is_tracking_active = False
 
 def start_tracking():
-    global tracking_process, audio_process
+    global tracking_process, audio_process, is_tracking_active
+    is_tracking_active = True
     if tracking_process is None or tracking_process.poll() is not None:
         print("Starting tracking_module.py...")
         tracking_process = subprocess.Popen([sys.executable, "tracking_module.py"])
@@ -21,7 +23,8 @@ def start_tracking():
         audio_process = subprocess.Popen([sys.executable, "audio_module.py"])
 
 def stop_tracking():
-    global tracking_process, audio_process
+    global tracking_process, audio_process, is_tracking_active
+    is_tracking_active = False
     if tracking_process is not None and tracking_process.poll() is None:
         print("Stopping tracking_module.py...")
         tracking_process.terminate()
@@ -59,6 +62,15 @@ async def get_processed_audio():
         return {"audio_files": audio_files}
     except Exception as e:
         return {"audio_files": []}
+
+@app.get("/api/notifications")
+async def get_notifications():
+    try:
+        files = os.listdir("static/audio/notifications")
+        audio_files = [f for f in files if f.lower().endswith(('.mp3', '.wav', '.ogg'))]
+        return {"notifications": audio_files}
+    except Exception as e:
+        return {"notifications": []}
 
 @app.get("/admin")
 async def get_admin():
@@ -112,6 +124,11 @@ manager = ConnectionManager()
 @app.websocket("/ws/{room_name}/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, room_name: str, client_id: str):
     await manager.connect(websocket, room_name)
+
+    if room_name == "room1" and client_id in ["tracker", "audio_tracker"] and is_tracking_active:
+        import json
+        await websocket.send_text(json.dumps({"command": "toggle_tracking", "state": "on"}))
+
     try:
         while True:
             data = await websocket.receive_text()
