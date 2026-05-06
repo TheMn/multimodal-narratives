@@ -146,6 +146,12 @@
 
     <div id="gaze-spot"></div>
 
+    <!-- Audio elements -->
+    <audio id="bg-audio" loop>
+        <source src="/static/audio/room1_background.wav" type="audio/wav">
+        <source src="/static/audio/room1_background.mp3" type="audio/mpeg">
+    </audio>
+
     <div class="controls">
         <button id="start-btn">Start Experience</button>
         <button id="end-btn" onclick="window.location.href='/room2'">End & Proceed to Room 2</button>
@@ -162,6 +168,7 @@
         let currentTimeout = null;
 
         const feedContainer = document.getElementById('feed-container');
+        const bgAudio = document.getElementById('bg-audio');
         const gazeSpot = document.getElementById('gaze-spot');
         const body = document.body;
 
@@ -265,6 +272,17 @@
                     // Trigger global glitch/shake
                     body.classList.add('shake');
 
+                    // Play notification sound
+                    // We create a new Audio object each time so multiple can overlap
+                    const notification = new Audio();
+                    notification.src = '/static/audio/notification.mp3';
+                    notification.onerror = () => {
+                        // Fallback to wav if mp3 doesn't exist
+                        notification.src = '/static/audio/notification.wav';
+                        notification.play().catch(e => console.warn("Audio play blocked", e));
+                    };
+                    notification.play().catch(e => console.warn("Audio play blocked", e));
+
                     // Speed up feed
                     minDelay = 500;
                     maxDelay = 1000;
@@ -295,6 +313,9 @@
             isExperienceRunning = true;
             document.querySelector('.controls').style.opacity = '0.1'; // dim controls
 
+            // Start background audio
+            bgAudio.play().catch(e => console.warn("Audio play blocked", e));
+
             // Tell the tracking module to start processing
             ws.send(JSON.stringify({command: "toggle_tracking", state: "on"}));
             console.log("Started tracking.");
@@ -305,6 +326,8 @@
         document.getElementById('end-btn').addEventListener('click', () => {
             isExperienceRunning = false;
             clearTimeout(currentTimeout);
+            // Stop background audio
+            bgAudio.pause();
             // Tell the tracking module to stop processing before leaving
             ws.send(JSON.stringify({command: "toggle_tracking", state: "off"}));
             console.log("Stopped tracking.");

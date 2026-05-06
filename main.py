@@ -7,25 +7,34 @@ import sys
 
 app = FastAPI(title="Multimodal Narratives Backend")
 
-# Global reference to the tracking subprocess
+# Global references to the subprocesses
 tracking_process = None
+audio_process = None
 
 def start_tracking():
-    global tracking_process
+    global tracking_process, audio_process
     if tracking_process is None or tracking_process.poll() is not None:
         print("Starting tracking_module.py...")
         tracking_process = subprocess.Popen([sys.executable, "tracking_module.py"])
+    if audio_process is None or audio_process.poll() is not None:
+        print("Starting audio_module.py...")
+        audio_process = subprocess.Popen([sys.executable, "audio_module.py"])
 
 def stop_tracking():
-    global tracking_process
+    global tracking_process, audio_process
     if tracking_process is not None and tracking_process.poll() is None:
         print("Stopping tracking_module.py...")
         tracking_process.terminate()
         tracking_process = None
+    if audio_process is not None and audio_process.poll() is None:
+        print("Stopping audio_module.py...")
+        audio_process.terminate()
+        audio_process = None
 
 # Ensure static directory exists
 os.makedirs("static", exist_ok=True)
 os.makedirs("static/artworks", exist_ok=True)
+os.makedirs("static/audio/processed", exist_ok=True)
 
 # Mount the static directory
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -39,6 +48,17 @@ async def get_artworks():
         return {"artworks": images}
     except Exception as e:
         return {"artworks": []}
+
+@app.get("/api/processed_audio")
+async def get_processed_audio():
+    try:
+        files = os.listdir("static/audio/processed")
+        audio_files = [f for f in files if f.lower().endswith('.wav')]
+        # Sort by creation time so they play in order
+        audio_files.sort(key=lambda x: os.path.getmtime(os.path.join("static/audio/processed", x)))
+        return {"audio_files": audio_files}
+    except Exception as e:
+        return {"audio_files": []}
 
 @app.get("/admin")
 async def get_admin():

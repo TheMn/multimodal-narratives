@@ -14,13 +14,72 @@
     <h1>Room 2: Isolation</h1>
     <p>A void evoking loneliness and unease.</p>
 
+    <!-- Eerie background audio -->
+    <audio id="bg-audio" loop autoplay>
+        <source src="/static/audio/room2_background.wav" type="audio/wav">
+        <source src="/static/audio/room2_background.mp3" type="audio/mpeg">
+    </audio>
+
     <div class="controls">
-        <button id="end-btn" onclick="window.location.href='/room3'">End & Proceed to Room 3</button>
+        <button id="start-btn">Start Experience</button>
+        <button id="end-btn" onclick="window.location.href='/room3'" style="display:none;">End & Proceed to Room 3</button>
     </div>
 
     <script>
         const clientId = "client_" + Math.random().toString(36).substring(7);
         const ws = new WebSocket(`ws://${window.location.host}/ws/room2/${clientId}`);
+
+        const bgAudio = document.getElementById('bg-audio');
+        const startBtn = document.getElementById('start-btn');
+        const endBtn = document.getElementById('end-btn');
+
+        let processedAudioFiles = [];
+        let isExperienceRunning = false;
+
+        async function fetchProcessedAudio() {
+            try {
+                const response = await fetch('/api/processed_audio');
+                const data = await response.json();
+                if (data.audio_files && data.audio_files.length > 0) {
+                    processedAudioFiles = data.audio_files;
+                    console.log("Loaded processed audio files:", processedAudioFiles);
+                }
+            } catch (e) {
+                console.error("Failed to fetch processed audio", e);
+            }
+        }
+
+        function playNextVoice(index) {
+            if (!isExperienceRunning || processedAudioFiles.length === 0) return;
+
+            if (index >= processedAudioFiles.length) {
+                // Loop back to start or stop
+                index = 0;
+            }
+
+            const audio = new Audio(`/static/audio/processed/${processedAudioFiles[index]}`);
+            audio.play().catch(e => console.warn("Voice play blocked", e));
+
+            audio.onended = () => {
+                // Random delay before the next voice plays to make it eerie
+                const delay = Math.random() * 3000 + 1000;
+                setTimeout(() => playNextVoice(index + 1), delay);
+            };
+        }
+
+        startBtn.addEventListener('click', async () => {
+            isExperienceRunning = true;
+            startBtn.style.display = 'none';
+            endBtn.style.display = 'inline-block';
+
+            bgAudio.play().catch(e => console.warn("Audio play blocked", e));
+
+            await fetchProcessedAudio();
+            if (processedAudioFiles.length > 0) {
+                // Wait a few seconds before starting the voices
+                setTimeout(() => playNextVoice(0), 2000);
+            }
+        });
 
         ws.onopen = function() {
             console.log("Connected to Room 2 WebSocket");
