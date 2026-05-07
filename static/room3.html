@@ -5,30 +5,292 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Room 3: Reconciliation</title>
     <style>
-        body { font-family: sans-serif; text-align: center; margin-top: 50px; background-color: #fdfbf7; color: #333; }
-        .controls { margin-top: 20px; }
+        body { font-family: sans-serif; text-align: center; margin-top: 20px; background-color: #fdfbf7; color: #333; overflow-x: hidden; }
+        .controls { margin-top: 20px; margin-bottom: 20px; }
         button { padding: 10px 20px; font-size: 16px; margin: 0 10px; cursor: pointer; }
+
+        #puzzle-container {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            margin: 0 auto;
+            border: 2px dashed #ccc;
+            background-color: #eee;
+        }
+
+        .puzzle-piece {
+            position: absolute;
+            background-size: 800px 400px;
+            cursor: grab;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            user-select: none;
+            touch-action: none;
+            z-index: 10;
+        }
+
+        .puzzle-piece:active {
+            cursor: grabbing;
+            z-index: 100;
+        }
+
+        #description-container {
+            display: none;
+            max-width: 800px;
+            margin: 30px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            text-align: left;
+            line-height: 1.6;
+        }
+
+        #description-container h2 {
+            margin-top: 0;
+            text-align: center;
+        }
+
+        @keyframes celebrate {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); box-shadow: 0 0 20px rgba(255, 215, 0, 0.8); }
+            100% { transform: scale(1); }
+        }
+
+        .celebration {
+            animation: celebrate 1s ease-in-out;
+            border: 2px solid gold !important;
+        }
     </style>
 </head>
 <body>
     <h1>Room 3: Reconciliation</h1>
-    <p>A cozy, relaxed space to actively engage with art.</p>
+    <p>A cozy, relaxed space to actively engage with art. Drag and drop the pieces to complete the puzzle.</p>
+
+    <!-- Background Music -->
+    <audio id="bg-audio" src="/static/audio/room3_background.mp3" autoplay loop></audio>
 
     <div class="controls">
         <button id="end-btn" onclick="window.location.href='/'">End Experience</button>
+    </div>
+
+    <div id="puzzle-container"></div>
+
+    <div id="description-container">
+        <h2>Artwork Information</h2>
+        <div id="description-text"></div>
     </div>
 
     <script>
         const clientId = "client_" + Math.random().toString(36).substring(7);
         const ws = new WebSocket(`ws://${window.location.host}/ws/room3/${clientId}`);
 
+        const puzzleContainer = document.getElementById("puzzle-container");
+        const descriptionContainer = document.getElementById("description-container");
+        const descriptionText = document.getElementById("description-text");
+
+        let puzzleInitialized = false;
+        let pieces = [];
+        let totalPieces = 0;
+        let columns = 5;
+        let rows = 2;
+        let pieceWidth = 800 / columns;
+        let pieceHeight = 400 / rows;
+        let draggedPiece = null;
+        let offsetX = 0;
+        let offsetY = 0;
+
         ws.onopen = function() {
             console.log("Connected to Room 3 WebSocket");
         };
 
         ws.onmessage = function(event) {
-            console.log("Received data:", event.data);
+            try {
+                const data = JSON.parse(event.data);
+
+                if (data.type === "puzzle_init" && !puzzleInitialized) {
+                    initPuzzle(data);
+                } else if (data.type === "piece_moved" && data.clientId !== clientId) {
+                    updatePiecePosition(data.pieceId, data.x, data.y);
+                } else if (data.type === "piece_snapped" && data.clientId !== clientId) {
+                    snapPieceRemotely(data.pieceId, data.x, data.y);
+                }
+            } catch (e) {
+                console.log("Received text data:", event.data);
+            }
         };
+
+        function initPuzzle(data) {
+            puzzleInitialized = true;
+            descriptionText.innerText = data.description;
+            columns = data.columns;
+            rows = data.rows;
+            totalPieces = columns * rows;
+            pieceWidth = 800 / columns;
+            pieceHeight = 400 / rows;
+
+            puzzleContainer.innerHTML = '';
+            pieces = [];
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < columns; c++) {
+                    createPiece(data.artwork, r, c);
+                }
+            }
+        }
+
+        function createPiece(imageUrl, row, col) {
+            const piece = document.createElement("div");
+            piece.className = "puzzle-piece";
+            piece.id = `piece_${row}_${col}`;
+
+            piece.style.width = `${pieceWidth}px`;
+            piece.style.height = `${pieceHeight}px`;
+            piece.style.backgroundImage = `url(${imageUrl})`;
+
+            // The background position determines which part of the image is shown
+            piece.style.backgroundPosition = `-${col * pieceWidth}px -${row * pieceHeight}px`;
+
+            // Random initial position around the container, but outside the correct spot
+            // Keep it mostly within the viewport for simplicity
+            const randomX = Math.random() * (window.innerWidth - pieceWidth - 40) - (window.innerWidth - 800)/2;
+            const randomY = Math.random() * 200 + 420; // Put below the puzzle container
+
+            piece.style.left = `${randomX}px`;
+            piece.style.top = `${randomY}px`;
+
+            // Store correct position
+            piece.dataset.correctX = col * pieceWidth;
+            piece.dataset.correctY = row * pieceHeight;
+            piece.dataset.snapped = "false";
+
+            // Add drag events
+            piece.addEventListener("pointerdown", onPointerDown);
+
+            puzzleContainer.appendChild(piece);
+            pieces.push(piece);
+        }
+
+        function onPointerDown(e) {
+            if (e.target.dataset.snapped === "true") return;
+
+            draggedPiece = e.target;
+
+            // Calculate offset between pointer and piece's top-left corner
+            const rect = draggedPiece.getBoundingClientRect();
+            const containerRect = puzzleContainer.getBoundingClientRect();
+
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+
+            draggedPiece.style.zIndex = 100;
+
+            document.addEventListener("pointermove", onPointerMove);
+            document.addEventListener("pointerup", onPointerUp);
+
+            // Prevent default touch actions like scrolling
+            e.preventDefault();
+        }
+
+        function onPointerMove(e) {
+            if (!draggedPiece) return;
+
+            const containerRect = puzzleContainer.getBoundingClientRect();
+
+            // Calculate new position relative to the container
+            let newX = e.clientX - containerRect.left - offsetX;
+            let newY = e.clientY - containerRect.top - offsetY;
+
+            draggedPiece.style.left = `${newX}px`;
+            draggedPiece.style.top = `${newY}px`;
+
+            // Broadcast move
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: "piece_moved",
+                    clientId: clientId,
+                    pieceId: draggedPiece.id,
+                    x: newX,
+                    y: newY
+                }));
+            }
+        }
+
+        function onPointerUp(e) {
+            if (!draggedPiece) return;
+
+            document.removeEventListener("pointermove", onPointerMove);
+            document.removeEventListener("pointerup", onPointerUp);
+
+            draggedPiece.style.zIndex = 10;
+
+            // Check if piece is close to correct position
+            const currentX = parseFloat(draggedPiece.style.left);
+            const currentY = parseFloat(draggedPiece.style.top);
+            const correctX = parseFloat(draggedPiece.dataset.correctX);
+            const correctY = parseFloat(draggedPiece.dataset.correctY);
+
+            const snapThreshold = 30; // pixels
+
+            if (Math.abs(currentX - correctX) < snapThreshold &&
+                Math.abs(currentY - correctY) < snapThreshold) {
+
+                // Snap to position
+                draggedPiece.style.left = `${correctX}px`;
+                draggedPiece.style.top = `${correctY}px`;
+                draggedPiece.dataset.snapped = "true";
+                draggedPiece.style.cursor = "default";
+
+                // Broadcast snap
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "piece_snapped",
+                        clientId: clientId,
+                        pieceId: draggedPiece.id,
+                        x: correctX,
+                        y: correctY
+                    }));
+                }
+
+                checkCompletion();
+            }
+
+            draggedPiece = null;
+        }
+
+        function updatePiecePosition(pieceId, x, y) {
+            const piece = document.getElementById(pieceId);
+            if (piece && piece.dataset.snapped === "false") {
+                piece.style.left = `${x}px`;
+                piece.style.top = `${y}px`;
+            }
+        }
+
+        function snapPieceRemotely(pieceId, x, y) {
+            const piece = document.getElementById(pieceId);
+            if (piece) {
+                piece.style.left = `${x}px`;
+                piece.style.top = `${y}px`;
+                piece.dataset.snapped = "true";
+                piece.style.cursor = "default";
+                checkCompletion();
+            }
+        }
+
+        function checkCompletion() {
+            const allSnapped = pieces.every(p => p.dataset.snapped === "true");
+            if (allSnapped && totalPieces > 0) {
+                puzzleContainer.classList.add("celebration");
+                descriptionContainer.style.display = "block";
+            }
+        }
+
+        // Auto-play audio handling for browsers that block autoplay
+        document.body.addEventListener('click', function() {
+            const audio = document.getElementById('bg-audio');
+            if (audio.paused) {
+                audio.play().catch(e => console.log("Audio play failed:", e));
+            }
+        }, { once: true });
     </script>
 </body>
 </html>

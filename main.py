@@ -7,10 +7,42 @@ import sys
 
 app = FastAPI(title="Multimodal Narratives Backend")
 
+import random
+
 # Global references to the subprocesses
 tracking_process = None
 audio_process = None
 is_tracking_active = False
+
+def get_random_puzzle():
+    try:
+        desc_files = os.listdir("static/descriptions")
+        txt_files = [f for f in desc_files if f.endswith('.txt')]
+        if not txt_files:
+            return None
+
+        selected_txt = random.choice(txt_files)
+        base_name = os.path.splitext(selected_txt)[0]
+
+        artworks = os.listdir("static/artworks")
+        matching_artwork = next((f for f in artworks if os.path.splitext(f)[0] == base_name), None)
+
+        if not matching_artwork:
+            return None
+
+        with open(os.path.join("static/descriptions", selected_txt), "r", encoding="utf-8") as f:
+            description = f.read()
+
+        return {
+            "type": "puzzle_init",
+            "artwork": f"/static/artworks/{matching_artwork}",
+            "description": description,
+            "columns": 5,
+            "rows": 2
+        }
+    except Exception as e:
+        print(f"Error getting random puzzle: {e}")
+        return None
 
 def start_tracking():
     global tracking_process, audio_process, is_tracking_active
@@ -125,9 +157,14 @@ manager = ConnectionManager()
 async def websocket_endpoint(websocket: WebSocket, room_name: str, client_id: str):
     await manager.connect(websocket, room_name)
 
+    import json
     if room_name == "room1" and client_id in ["tracker", "audio_tracker"] and is_tracking_active:
-        import json
         await websocket.send_text(json.dumps({"command": "toggle_tracking", "state": "on"}))
+
+    if room_name == "room3":
+        puzzle_data = get_random_puzzle()
+        if puzzle_data:
+            await websocket.send_text(json.dumps(puzzle_data))
 
     try:
         while True:
