@@ -6,14 +6,30 @@
     <title>Room 3: Reconciliation</title>
     <style>
         body { font-family: sans-serif; text-align: center; margin-top: 20px; background-color: #fdfbf7; color: #333; overflow-x: hidden; }
-        .controls { margin-top: 20px; margin-bottom: 20px; }
+        .controls { margin-top: 40px; margin-bottom: 20px; }
         button { padding: 10px 20px; font-size: 16px; margin: 0 10px; cursor: pointer; }
+
+        #main-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        #main-content.vertical-layout {
+            flex-direction: row;
+            align-items: flex-start;
+        }
 
         #puzzle-container {
             position: relative;
             margin: 0 auto;
             border: 2px dashed #ccc;
             background-color: #eee;
+            flex-shrink: 0;
         }
 
         .puzzle-piece {
@@ -33,13 +49,16 @@
         #description-container {
             display: none;
             max-width: 800px;
-            margin: 30px auto;
             padding: 20px;
             background: white;
             border-radius: 8px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             text-align: left;
             line-height: 1.6;
+        }
+
+        #main-content.vertical-layout #description-container {
+            max-width: 400px;
         }
 
         #description-container h2 {
@@ -66,21 +85,24 @@
     <!-- Background Music -->
     <audio id="bg-audio" src="/static/audio/room3_background.mp3" autoplay loop></audio>
 
-    <div class="controls">
-        <button id="end-btn" onclick="window.location.href='/'">End Experience</button>
+    <div id="main-content">
+        <div id="puzzle-container"></div>
+
+        <div id="description-container">
+            <h2>Artwork Information</h2>
+            <div id="description-text"></div>
+        </div>
     </div>
 
-    <div id="puzzle-container"></div>
-
-    <div id="description-container">
-        <h2>Artwork Information</h2>
-        <div id="description-text"></div>
+    <div class="controls">
+        <button id="end-btn" onclick="window.location.href='/'">End Experience</button>
     </div>
 
     <script>
         const clientId = "client_" + Math.random().toString(36).substring(7);
         const ws = new WebSocket(`ws://${window.location.host}/ws/room3/${clientId}`);
 
+        const mainContent = document.getElementById("main-content");
         const puzzleContainer = document.getElementById("puzzle-container");
         const descriptionContainer = document.getElementById("description-container");
         const descriptionText = document.getElementById("description-text");
@@ -150,6 +172,13 @@
                 puzzleContainer.style.width = `${containerWidth}px`;
                 puzzleContainer.style.height = `${containerHeight}px`;
 
+                // Set layout mode based on aspect ratio
+                if (containerHeight > containerWidth) {
+                    mainContent.classList.add("vertical-layout");
+                } else {
+                    mainContent.classList.remove("vertical-layout");
+                }
+
                 pieceWidth = containerWidth / columns;
                 pieceHeight = containerHeight / rows;
 
@@ -178,10 +207,9 @@
             // The background position determines which part of the image is shown
             piece.style.backgroundPosition = `-${col * pieceWidth}px -${row * pieceHeight}px`;
 
-            // Random initial position around the container, but outside the correct spot
-            // Keep it mostly within the viewport for simplicity
-            const randomX = Math.random() * (window.innerWidth - pieceWidth - 40) - (window.innerWidth - containerWidth)/2;
-            const randomY = Math.random() * 200 + containerHeight + 20; // Put below the puzzle container
+            // Random initial position inside the container to avoid scrolling
+            const randomX = Math.random() * (containerWidth - pieceWidth);
+            const randomY = Math.random() * (containerHeight - pieceHeight);
 
             piece.style.left = `${randomX}px`;
             piece.style.top = `${randomY}px`;
