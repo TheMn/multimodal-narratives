@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reclaiming Attention</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #111;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+        }
+        .container {
+            max-width: 800px;
+            padding: 40px;
+            background-color: #222;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        h2 {
+            font-size: 1.2em;
+            font-weight: normal;
+            color: #aaa;
+            margin-bottom: 40px;
+        }
+        .room-section {
+            margin-bottom: 30px;
+            text-align: left;
+            background-color: #333;
+            padding: 20px;
+            border-radius: 6px;
+        }
+        .room-section p {
+            margin: 0 0 15px 0;
+            line-height: 1.5;
+            color: #ddd;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #444;
+            color: white;
+            border: 1px solid #666;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>"Reclaiming Attention"</h1>
+        <h2>A multimodal exploration of art in the age of overstimulation</h2>
+
+        <div class="room-section">
+            <p><strong>Overstimulation Room:</strong> Enter a chaotic environment filled with fleeting, distorted images and simultaneous digital notifications, simulating the sensory overload and frustration of modern hyper-connectivity.</p>
+            <button onclick="window.location.href='/room1'">Enter Overstimulation Room</button>
+        </div>
+
+        <div class="room-section">
+            <p><strong>Isolation Room:</strong> Navigate through a completely dark space guided only by a rope, accompanied by unsettling sounds that evoke feelings of loneliness and the fear of missing out.</p>
+            <button onclick="window.location.href='/room2'">Enter Isolation Room</button>
+        </div>
+
+        <div class="room-section">
+            <p><strong>Reconnection Room:</strong> Find relief in a calm, welcoming environment where you can collaborate with others to assemble a digital puzzle, encouraging shared focus and meaningful interaction.</p>
+            <button onclick="window.location.href='/room3'">Enter Reconnection Room</button>
+        </div>
+    </div>
+</body>
+</html>
