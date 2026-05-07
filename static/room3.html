@@ -11,8 +11,6 @@
 
         #puzzle-container {
             position: relative;
-            width: 800px;
-            height: 400px;
             margin: 0 auto;
             border: 2px dashed #ccc;
             background-color: #eee;
@@ -20,7 +18,6 @@
 
         .puzzle-piece {
             position: absolute;
-            background-size: 800px 400px;
             cursor: grab;
             box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
             user-select: none;
@@ -93,8 +90,10 @@
         let totalPieces = 0;
         let columns = 5;
         let rows = 2;
-        let pieceWidth = 800 / columns;
-        let pieceHeight = 400 / rows;
+        let pieceWidth = 0;
+        let pieceHeight = 0;
+        let containerWidth = 0;
+        let containerHeight = 0;
         let draggedPiece = null;
         let offsetX = 0;
         let offsetY = 0;
@@ -125,17 +124,45 @@
             columns = data.columns;
             rows = data.rows;
             totalPieces = columns * rows;
-            pieceWidth = 800 / columns;
-            pieceHeight = 400 / rows;
 
-            puzzleContainer.innerHTML = '';
-            pieces = [];
+            // Load the image to get its natural dimensions
+            const img = new Image();
+            img.onload = function() {
+                const maxWidth = 800;
+                const maxHeight = 600;
 
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < columns; c++) {
-                    createPiece(data.artwork, r, c);
+                // Calculate scaled dimensions preserving aspect ratio
+                let width = img.naturalWidth;
+                let height = img.naturalHeight;
+
+                if (width > maxWidth) {
+                    height = height * (maxWidth / width);
+                    width = maxWidth;
                 }
-            }
+                if (height > maxHeight) {
+                    width = width * (maxHeight / height);
+                    height = maxHeight;
+                }
+
+                containerWidth = width;
+                containerHeight = height;
+
+                puzzleContainer.style.width = `${containerWidth}px`;
+                puzzleContainer.style.height = `${containerHeight}px`;
+
+                pieceWidth = containerWidth / columns;
+                pieceHeight = containerHeight / rows;
+
+                puzzleContainer.innerHTML = '';
+                pieces = [];
+
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < columns; c++) {
+                        createPiece(data.artwork, r, c);
+                    }
+                }
+            };
+            img.src = data.artwork;
         }
 
         function createPiece(imageUrl, row, col) {
@@ -146,14 +173,15 @@
             piece.style.width = `${pieceWidth}px`;
             piece.style.height = `${pieceHeight}px`;
             piece.style.backgroundImage = `url(${imageUrl})`;
+            piece.style.backgroundSize = `${containerWidth}px ${containerHeight}px`;
 
             // The background position determines which part of the image is shown
             piece.style.backgroundPosition = `-${col * pieceWidth}px -${row * pieceHeight}px`;
 
             // Random initial position around the container, but outside the correct spot
             // Keep it mostly within the viewport for simplicity
-            const randomX = Math.random() * (window.innerWidth - pieceWidth - 40) - (window.innerWidth - 800)/2;
-            const randomY = Math.random() * 200 + 420; // Put below the puzzle container
+            const randomX = Math.random() * (window.innerWidth - pieceWidth - 40) - (window.innerWidth - containerWidth)/2;
+            const randomY = Math.random() * 200 + containerHeight + 20; // Put below the puzzle container
 
             piece.style.left = `${randomX}px`;
             piece.style.top = `${randomY}px`;
