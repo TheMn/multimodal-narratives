@@ -122,7 +122,7 @@ async def get_room3():
 
 @app.get("/")
 async def get_root():
-    return {"message": "Welcome to Multimodal Narratives. Endpoints: /admin, /room1, /room2, /room3"}
+    return FileResponse("static/index.html")
 
 class ConnectionManager:
     def __init__(self):
